@@ -201,25 +201,22 @@ def send_spray(payload: CommandPayload):
     mqtt_client.publish(topic, "spray")
     return {"status": "sent", "topic": topic}
 
-@app.post("/api/interval")
-def send_interval(payload: IntervalPayload):
-    val = max(3, min(120, payload.interval))
-    topic = f"airfreshener/{payload.device_id}/interval"
-    mqtt_client.publish(topic, str(val))
-    return {"status": "sent", "interval": val}
-
 @app.post("/api/rename")
 def rename_device(payload: RenamePayload):
+    name = payload.name.strip()
+
+    if not name:
+        return {"error": "Name cannot be empty"}
+
     conn = get_db()
     conn.execute(
         "UPDATE devices SET name=? WHERE device_id=?",
-        (payload.name.strip(), payload.device_id)
+        (name, payload.device_id)
     )
     conn.commit()
     conn.close()
-    return {"status": "renamed", "device_id": payload.device_id, "name": payload.name}
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+    return {"status": "renamed"}
 
 @app.get("/")
 def root():
