@@ -277,22 +277,7 @@
     if (res.ok) showMsg('interval-msg', `✓ Set to ${val} min`);
     else showMsg('interval-msg', 'Failed', true);
   }
-
-  async function renameDevice(deviceId) {
-    const input = document.getElementById(`rename-${deviceId}`);
-    const name = input.value.trim();
-    if (!name) return;
-    const res = await fetch(`${API}/api/rename`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: deviceId, name })
-    });
-    if (res.ok) {
-      showMsg('rename-msg-' + deviceId, '✓ Renamed');
-      await loadDevices();
-      loadAdmin();
-    }
-  }
+}
 
   async function loadAdmin() {
     const dRes = await fetch(`${API}/api/devices`);
