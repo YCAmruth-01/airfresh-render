@@ -16,7 +16,6 @@ MQTT_USER = "freshener"
 MQTT_PASS = "EsP-3232"
 DB_PATH   = "airfresh.db"
 
-# ── DB ────────────────────────────────────────────────────
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -55,8 +54,7 @@ def init_db():
     conn.close()
     print("[DB] Ready")
 
-# ── MQTT ──────────────────────────────────────────────────
-mqtt_client = mqtt.Client(client_id="fastapi-backend")
+mqtt_client = mqtt.Client(client_id="fastapi-backend-001")
 latest_status = {}
 
 def on_connect(client, userdata, flags, rc):
@@ -73,7 +71,8 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     try:
         data = json.loads(msg.payload.decode())
-    except:
+    except Exception as e:
+        print(f"[MQTT] Parse error: {e}")
         return
 
     parts = topic.split("/")
@@ -83,20 +82,25 @@ def on_message(client, userdata, msg):
     device_id = parts[1]
     event     = parts[2]
     ts        = datetime.utcnow().isoformat()
-    conn      = get_db()
-    c         = conn.cursor()
+
+    print(f"[MQTT] {topic} → {data}")
+
+    conn = get_db()
+    c    = conn.cursor()
 
     if event == "spray":
+        # Get interval_at_time from payload — try both field names
+        interval_val = data.get("interval_at_time") or data.get("interval") or 0
         c.execute(
             "INSERT INTO spray_logs (device_id, spray_count, trigger_type, interval_at_time, uptime, timestamp) VALUES (?,?,?,?,?,?)",
             (device_id, data.get("count", 0), data.get("trigger", "auto"),
-             data.get("interval_at_time", 0), data.get("uptime", ""), ts)
+             interval_val, data.get("uptime", ""), ts)
         )
         c.execute(
             "UPDATE devices SET total_sprays = total_sprays + 1, last_seen = ? WHERE device_id = ?",
             (ts, device_id)
         )
-        print(f"[SPRAY] {device_id} #{data.get('count')} ({data.get('trigger')})")
+        print(f"[SPRAY] {device_id} #{data.get('count')} trigger={data.get('trigger')} interval={interval_val}")
 
     elif event == "status":
         latest_status[device_id] = data
@@ -110,16 +114,24 @@ def on_message(client, userdata, msg):
             '''INSERT INTO devices (device_id, name, registered_at, last_seen, online_status, current_interval, total_sprays)
                VALUES (?,?,?,?,'online',15,0)
                ON CONFLICT(device_id) DO UPDATE SET
-               name=excluded.name, last_seen=excluded.last_seen, online_status='online' ''',
+               last_seen=excluded.last_seen, online_status='online' ''',
             (device_id, data.get("device_name", device_id), ts, ts)
         )
-        print(f"[ONLINE] {device_id} registered")
+        print(f"[ONLINE] {device_id}")
 
     elif event == "interval_log":
+        old_val = data.get("old_interval", 0)
+        new_val = data.get("new_interval", 0)
         c.execute(
             "INSERT INTO interval_logs (device_id, old_interval, new_interval, changed_at) VALUES (?,?,?,?)",
-            (device_id, data.get("old_interval", 0), data.get("new_interval", 0), ts)
+            (device_id, old_val, new_val, ts)
         )
+        # Also update current_interval in devices table
+        c.execute(
+            "UPDATE devices SET current_interval=? WHERE device_id=?",
+            (new_val, device_id)
+        )
+        print(f"[INTERVAL] {device_id} {old_val} → {new_val}")
 
     conn.commit()
     conn.close()
@@ -132,7 +144,6 @@ def start_mqtt():
     mqtt_client.connect(MQTT_HOST, MQTT_PORT, 60)
     mqtt_client.loop_forever()
 
-# ── FastAPI ───────────────────────────────────────────────
 app = FastAPI()
 
 app.add_middleware(CORSMiddleware,
@@ -148,22 +159,17 @@ def startup():
     t.start()
     print("[APP] Started")
 
-# ── API Routes ────────────────────────────────────────────
 @app.get("/api/sprays")
 def get_sprays():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM spray_logs ORDER BY id DESC LIMIT 100"
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM spray_logs ORDER BY id DESC LIMIT 100").fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 @app.get("/api/devices")
 def get_devices():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM devices ORDER BY last_seen DESC"
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM devices ORDER BY last_seen DESC").fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -174,9 +180,7 @@ def get_status(device_id: str):
 @app.get("/api/interval-logs")
 def get_interval_logs():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM interval_logs ORDER BY id DESC LIMIT 100"
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM interval_logs ORDER BY id DESC LIMIT 100").fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -186,6 +190,10 @@ class CommandPayload(BaseModel):
 class IntervalPayload(BaseModel):
     device_id: str
     interval: int
+
+class RenamePayload(BaseModel):
+    device_id: str
+    name: str
 
 @app.post("/api/spray")
 def send_spray(payload: CommandPayload):
@@ -200,7 +208,17 @@ def send_interval(payload: IntervalPayload):
     mqtt_client.publish(topic, str(val))
     return {"status": "sent", "interval": val}
 
-# ── Serve frontend ────────────────────────────────────────
+@app.post("/api/rename")
+def rename_device(payload: RenamePayload):
+    conn = get_db()
+    conn.execute(
+        "UPDATE devices SET name=? WHERE device_id=?",
+        (payload.name.strip(), payload.device_id)
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "renamed", "device_id": payload.device_id, "name": payload.name}
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
