@@ -202,20 +202,21 @@
     document.getElementById('total-sprays').textContent = data[0].spray_count;
   }
 
-  async function loadDevices() {
+async function loadDevices() {
+  try {
     const res = await fetch(`${API}/api/devices`);
-    allDevices = await res.json();
-    const sel = document.getElementById('device-select');
-    const prev = sel.value || selectedDevice;
-    sel.innerHTML = '<option value="">-- select --</option>' +
-      allDevices.map(d => `<option value="${d.device_id}" ${d.device_id === prev ? 'selected' : ''}>${d.name || d.device_id}</option>`).join('');
-    if (!prev && allDevices.length) {
-      sel.value = allDevices[0].device_id;
-      selectedDevice = allDevices[0].device_id;
-    }
-    if (selectedDevice) updateDeviceWidgets();
-  }
+    const data = await res.json();
 
+    allDevices = data;
+
+    const sel = document.getElementById('device-select');
+    sel.innerHTML = '<option value="">-- select --</option>' +
+      data.map(d => `<option value="${d.device_id}">${d.name || d.device_id}</option>`).join('');
+
+  } catch (err) {
+    console.error("loadDevices failed:", err);
+  }
+}
   async function updateDeviceWidgets() {
     if (!selectedDevice) return;
 
@@ -328,12 +329,14 @@
           </tr>`).join('')
       : '<tr><td colspan="5" style="text-align:center;color:#555;padding:24px">No changes yet</td></tr>';
   }
-
-  async function refresh() {
+async function refresh() {
+  try {
     await loadSprays();
     await loadDevices();
-    document.getElementById('last-refresh').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    console.error("refresh failed:", err);
   }
+}
 
   refresh();
   setInterval(updateDeviceWidgets, 2000);
