@@ -308,12 +308,25 @@
             <td style="color:#00e5ff;font-weight:bold">${d.total_sprays}</td>
             <td style="font-size:0.75rem">${d.last_seen || '--'}</td>
             <td>
-              <div class="rename-row">
-                <input type="text" id="rename-${d.device_id}" placeholder="${d.name || d.device_id}" style="width:140px">
-                <button class="grey" onclick="renameDevice('${d.device_id}')">Save</button>
-                <span class="msg" id="rename-msg-${d.device_id}"></span>
-              </div>
-            </td>
+  <span id="name-${d.device_id}">${d.name || '--'}</span>
+
+  <input id="name-input-${d.device_id}" value="${d.name || ''}"
+    style="display:none;background:#0f1117;border:1px solid #2a2f3e;color:#e0e0e0;padding:4px 8px;border-radius:4px;font-size:0.82rem;width:140px">
+
+  <button onclick="startEdit('${d.device_id}')" id="edit-btn-${d.device_id}">
+    ✏️ Edit
+  </button>
+
+  <button style="display:none"
+    onclick="saveEdit('${d.device_id}')" id="save-btn-${d.device_id}">
+    ✓ Save
+  </button>
+
+  <button style="display:none"
+    onclick="cancelEdit('${d.device_id}')" id="cancel-btn-${d.device_id}">
+    ✕
+  </button>
+</td>
           </tr>`).join('')
       : '<tr><td colspan="7" style="text-align:center;color:#555;padding:24px">No devices yet</td></tr>';
 
@@ -340,6 +353,37 @@
   refresh();
   setInterval(updateDeviceWidgets, 2000);
   setInterval(refresh, 10000);
+
+ function startEdit(deviceId) {
+  document.getElementById(`name-${deviceId}`).style.display = 'none';
+  document.getElementById(`name-input-${deviceId}`).style.display = 'inline';
+  document.getElementById(`edit-btn-${deviceId}`).style.display = 'none';
+  document.getElementById(`save-btn-${deviceId}`).style.display = 'inline';
+  document.getElementById(`cancel-btn-${deviceId}`).style.display = 'inline';
+}
+
+function cancelEdit(deviceId) {
+  document.getElementById(`name-${deviceId}`).style.display = 'inline';
+  document.getElementById(`name-input-${deviceId}`).style.display = 'none';
+  document.getElementById(`edit-btn-${deviceId}`).style.display = 'inline';
+  document.getElementById(`save-btn-${deviceId}`).style.display = 'none';
+  document.getElementById(`cancel-btn-${deviceId}`).style.display = 'none';
+}
+
+async function saveEdit(deviceId) {
+  const newName = document.getElementById(`name-input-${deviceId}`).value.trim();
+  if (!newName) return alert("Name cannot be empty");
+
+  await fetch(`${API}/api/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_id: deviceId, name: newName })
+  });
+
+  document.getElementById(`name-${deviceId}`).textContent = newName;
+  cancelEdit(deviceId);
+  loadDevices();
+}
 </script>
 </body>
 </html>
