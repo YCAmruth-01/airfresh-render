@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,72 +7,83 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Arial, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
-  header { background: #1a1f2e; padding: 16px 32px; border-bottom: 1px solid #2a2f3e; }
+  header { background: #1a1f2e; padding: 16px 32px; border-bottom: 1px solid #2a2f3e; display: flex; align-items: center; justify-content: space-between; }
   header h1 { font-size: 1.4rem; color: #00e5ff; }
-  header span { font-size: 0.8rem; color: #555; margin-left: 12px; }
-  .tabs { display: flex; gap: 0; border-bottom: 1px solid #2a2f3e; background: #12151f; }
+  header .updated { font-size: 0.75rem; color: #555; }
+  .tabs { display: flex; border-bottom: 1px solid #2a2f3e; background: #12151f; }
   .tab { padding: 12px 28px; cursor: pointer; font-size: 0.9rem; color: #888; border-bottom: 2px solid transparent; transition: all 0.2s; }
   .tab.active { color: #00e5ff; border-bottom-color: #00e5ff; }
-  .page { display: none; padding: 24px 32px; }
+  .page { display: none; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
   .page.active { display: block; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
   .card { background: #1a1f2e; border: 1px solid #2a2f3e; border-radius: 10px; padding: 20px; }
-  .card h3 { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-  .card .val { font-size: 2rem; font-weight: bold; color: #00e5ff; }
-  .card .sub { font-size: 0.75rem; color: #555; margin-top: 4px; }
+  .card h3 { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .card .val { font-size: 2.2rem; font-weight: bold; color: #00e5ff; font-variant-numeric: tabular-nums; }
+  .card .sub { font-size: 0.75rem; color: #666; margin-top: 6px; }
+  .card .val.yellow { color: #ffbe0b; }
+  .card .val.green { color: #a8ff3e; }
   .controls { background: #1a1f2e; border: 1px solid #2a2f3e; border-radius: 10px; padding: 20px; margin-bottom: 24px; }
-  .controls h3 { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
-  .ctrl-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-  .ctrl-row label { font-size: 0.85rem; color: #aaa; min-width: 140px; }
-  button { background: #ff4d6d; color: white; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: background 0.2s; }
+  .controls h3 { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .ctrl-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .ctrl-row label { font-size: 0.85rem; color: #aaa; min-width: 150px; }
+  button { background: #ff4d6d; color: white; border: none; padding: 9px 22px; border-radius: 6px; cursor: pointer; font-size: 0.88rem; font-weight: bold; transition: background 0.2s; }
   button:hover { background: #ff2d50; }
-  button.secondary { background: #2a3f6f; }
-  button.secondary:hover { background: #1a2f5f; }
-  input[type=number] { background: #0f1117; border: 1px solid #2a2f3e; color: #e0e0e0; padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; width: 100px; }
-  select { background: #0f1117; border: 1px solid #2a2f3e; color: #e0e0e0; padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  .online { background: #a8ff3e; }
-  .offline { background: #ff4d6d; }
+  button.blue { background: #1a4a9e; }
+  button.blue:hover { background: #0a3a8e; }
+  button.grey { background: #2a3040; color: #aaa; }
+  button.grey:hover { background: #3a4050; color: #fff; }
+  input[type=number], input[type=text], select {
+    background: #0f1117; border: 1px solid #2a2f3e; color: #e0e0e0;
+    padding: 8px 12px; border-radius: 6px; font-size: 0.88rem;
+  }
+  input[type=number] { width: 100px; }
+  input[type=text] { width: 200px; }
+  select { min-width: 160px; }
+  .msg { font-size: 0.78rem; color: #a8ff3e; margin-left: 8px; }
+  .msg.err { color: #ff4d6d; }
+  .table-wrap { background: #12151f; border: 1px solid #2a2f3e; border-radius: 10px; overflow: hidden; margin-bottom: 24px; }
   table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-  th { background: #1a1f2e; color: #00e5ff; padding: 10px 12px; text-align: left; border-bottom: 1px solid #2a2f3e; }
-  td { padding: 9px 12px; border-bottom: 1px solid #1a1f2e; color: #ccc; }
+  th { background: #1a1f2e; color: #00e5ff; padding: 10px 14px; text-align: left; border-bottom: 1px solid #2a2f3e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 10px 14px; border-bottom: 1px solid #141820; color: #ccc; }
+  tr:last-child td { border-bottom: none; }
   tr:hover td { background: #1a1f2e; }
   .trigger-auto { color: #00e5ff; }
   .trigger-manual { color: #ff4d6d; }
-  .table-wrap { background: #12151f; border: 1px solid #2a2f3e; border-radius: 10px; overflow: hidden; }
-  .msg { font-size: 0.8rem; color: #a8ff3e; margin-left: 12px; }
-  #countdown-display { font-size: 2.5rem; font-weight: bold; color: #ffbe0b; font-variant-numeric: tabular-nums; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+  .dot.online { background: #a8ff3e; box-shadow: 0 0 6px #a8ff3e88; }
+  .dot.offline { background: #555; }
+  .section-title { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .rename-row { display: flex; align-items: center; gap: 8px; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>💨 Smart Air Freshener</h1>
-  <span id="last-refresh">loading...</span>
+  <span class="updated" id="last-refresh">—</span>
 </header>
 
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('user')">Dashboard</div>
+  <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
   <div class="tab" onclick="switchTab('admin')">Admin</div>
 </div>
 
-<!-- USER TAB -->
-<div class="page active" id="page-user">
-
-  <div class="grid">
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="grid3">
     <div class="card">
       <h3>Next Spray In</h3>
-      <div id="countdown-display">--:--</div>
+      <div class="val yellow" id="countdown-display">--:--</div>
       <div class="sub" id="interval-display">Interval: -- min</div>
     </div>
     <div class="card">
       <h3>Total Sprays</h3>
-      <div class="val" id="total-sprays">--</div>
-      <div class="sub" id="device-status">Device: --</div>
+      <div class="val green" id="total-sprays">--</div>
+      <div class="sub" id="device-status-display">Status: --</div>
     </div>
     <div class="card">
       <h3>Device</h3>
-      <div class="val" style="font-size:1.1rem" id="device-id-display">--</div>
+      <div class="val" style="font-size:1.1rem;color:#ffbe0b" id="device-name-display">--</div>
       <div class="sub" id="last-seen-display">Last seen: --</div>
     </div>
   </div>
@@ -83,7 +93,7 @@
     <div class="ctrl-row">
       <label>Device</label>
       <select id="device-select" onchange="onDeviceChange()">
-        <option value="">-- select device --</option>
+        <option value="">-- select --</option>
       </select>
     </div>
     <div class="ctrl-row">
@@ -94,47 +104,45 @@
     <div class="ctrl-row">
       <label>Set Interval (min)</label>
       <input type="number" id="interval-input" min="3" max="120" value="15">
-      <button class="secondary" onclick="sendInterval()">Set</button>
+      <button class="blue" onclick="sendInterval()">Set</button>
       <span class="msg" id="interval-msg"></span>
     </div>
   </div>
 
+  <div class="section-title">Spray History</div>
   <div class="table-wrap">
     <table>
       <thead>
-        <tr>
-          <th>#</th><th>Device</th><th>Count</th><th>Trigger</th>
-          <th>Interval</th><th>Uptime</th><th>Timestamp</th>
-        </tr>
+        <tr><th>#</th><th>Device</th><th>Count</th><th>Trigger</th><th>Interval</th><th>Uptime</th><th>Timestamp</th></tr>
       </thead>
-      <tbody id="spray-table-body">
+      <tbody id="spray-tbody">
         <tr><td colspan="7" style="text-align:center;color:#555;padding:24px">Loading...</td></tr>
       </tbody>
     </table>
   </div>
 </div>
 
-<!-- ADMIN TAB -->
+<!-- ADMIN -->
 <div class="page" id="page-admin">
-  <h3 style="color:#888;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px">All Devices</h3>
-  <div class="table-wrap" style="margin-bottom:24px">
+  <div class="section-title" style="margin-bottom:12px">All Devices</div>
+  <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Device ID</th><th>Name</th><th>Status</th><th>Interval</th><th>Total Sprays</th><th>Last Seen</th></tr>
+        <tr><th>Device ID</th><th>Name</th><th>Status</th><th>Interval</th><th>Total Sprays</th><th>Last Seen</th><th>Rename</th></tr>
       </thead>
-      <tbody id="devices-table-body">
-        <tr><td colspan="6" style="text-align:center;color:#555;padding:24px">Loading...</td></tr>
+      <tbody id="devices-tbody">
+        <tr><td colspan="7" style="text-align:center;color:#555;padding:24px">Loading...</td></tr>
       </tbody>
     </table>
   </div>
 
-  <h3 style="color:#888;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px">Interval Change History</h3>
+  <div class="section-title">Interval Change History</div>
   <div class="table-wrap">
     <table>
       <thead>
         <tr><th>#</th><th>Device</th><th>Old Interval</th><th>New Interval</th><th>Changed At</th></tr>
       </thead>
-      <tbody id="interval-table-body">
+      <tbody id="interval-tbody">
         <tr><td colspan="5" style="text-align:center;color:#555;padding:24px">Loading...</td></tr>
       </tbody>
     </table>
@@ -144,38 +152,38 @@
 <script>
   const API = '';
   let selectedDevice = '';
-  let countdownValue = 0;
+  let countdownSecs = 0;
   let countdownTimer = null;
+  let allDevices = [];
 
   function switchTab(tab) {
     document.querySelectorAll('.tab').forEach((t, i) => {
-      t.classList.toggle('active', (i === 0 && tab === 'user') || (i === 1 && tab === 'admin'));
+      t.classList.toggle('active', (i === 0 && tab === 'dashboard') || (i === 1 && tab === 'admin'));
     });
-    document.getElementById('page-user').classList.toggle('active', tab === 'user');
+    document.getElementById('page-dashboard').classList.toggle('active', tab === 'dashboard');
     document.getElementById('page-admin').classList.toggle('active', tab === 'admin');
     if (tab === 'admin') loadAdmin();
   }
 
   function fmt(s) {
-    const mm = String(Math.floor(s / 60)).padStart(2, '0');
-    const ss = String(s % 60).padStart(2, '0');
-    return `${mm}:${ss}`;
+    s = Math.max(0, Math.floor(s));
+    return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   }
 
   function startCountdown(secs) {
     if (countdownTimer) clearInterval(countdownTimer);
-    countdownValue = secs;
-    document.getElementById('countdown-display').textContent = fmt(countdownValue);
+    countdownSecs = Math.floor(secs);
+    document.getElementById('countdown-display').textContent = fmt(countdownSecs);
     countdownTimer = setInterval(() => {
-      if (countdownValue > 0) countdownValue--;
-      document.getElementById('countdown-display').textContent = fmt(countdownValue);
+      if (countdownSecs > 0) countdownSecs--;
+      document.getElementById('countdown-display').textContent = fmt(countdownSecs);
     }, 1000);
   }
 
   async function loadSprays() {
     const res = await fetch(`${API}/api/sprays`);
     const data = await res.json();
-    const tbody = document.getElementById('spray-table-body');
+    const tbody = document.getElementById('spray-tbody');
     if (!data.length) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#555;padding:24px">No sprays yet</td></tr>';
       document.getElementById('total-sprays').textContent = '0';
@@ -196,94 +204,130 @@
 
   async function loadDevices() {
     const res = await fetch(`${API}/api/devices`);
-    const data = await res.json();
+    allDevices = await res.json();
     const sel = document.getElementById('device-select');
-    const current = sel.value;
-    sel.innerHTML = '<option value="">-- select device --</option>' +
-      data.map(d => `<option value="${d.device_id}" ${d.device_id === current ? 'selected' : ''}>${d.name || d.device_id}</option>`).join('');
-    if (!current && data.length) {
-      sel.value = data[0].device_id;
-      selectedDevice = data[0].device_id;
+    const prev = sel.value || selectedDevice;
+    sel.innerHTML = '<option value="">-- select --</option>' +
+      allDevices.map(d => `<option value="${d.device_id}" ${d.device_id === prev ? 'selected' : ''}>${d.name || d.device_id}</option>`).join('');
+    if (!prev && allDevices.length) {
+      sel.value = allDevices[0].device_id;
+      selectedDevice = allDevices[0].device_id;
     }
-    if (selectedDevice) loadDeviceStatus();
-    return data;
+    if (selectedDevice) updateDeviceWidgets();
   }
 
-  async function loadDeviceStatus() {
+  async function updateDeviceWidgets() {
     if (!selectedDevice) return;
-    const res = await fetch(`${API}/api/status/${selectedDevice}`);
-    const data = await res.json();
-    if (data.error) {
-      document.getElementById('device-status').textContent = 'Offline';
-      return;
-    }
-    document.getElementById('interval-display').textContent = `Interval: ${data.interval} min`;
-    document.getElementById('device-id-display').textContent = selectedDevice;
-    startCountdown(data.countdown || 0);
 
-    const devRes = await fetch(`${API}/api/devices`);
-    const devData = await devRes.json();
-    const dev = devData.find(d => d.device_id === selectedDevice);
+    // Live status from memory
+    const sRes = await fetch(`${API}/api/status/${selectedDevice}`);
+    const status = await sRes.json();
+
+    if (!status.error) {
+      startCountdown(status.countdown || 0);
+      document.getElementById('interval-display').textContent = `Interval: ${status.interval} min`;
+      document.getElementById('interval-input').value = status.interval;
+    }
+
+    // Device info from DB
+    const dev = allDevices.find(d => d.device_id === selectedDevice);
     if (dev) {
-      const dot = dev.online_status === 'online' ? '🟢' : '🔴';
-      document.getElementById('device-status').textContent = `${dot} ${dev.online_status}`;
+      const isOnline = dev.online_status === 'online';
+      document.getElementById('device-name-display').textContent = dev.name || dev.device_id;
       document.getElementById('last-seen-display').textContent = `Last seen: ${dev.last_seen || '--'}`;
+      document.getElementById('device-status-display').innerHTML =
+        `<span class="dot ${isOnline ? 'online' : 'offline'}"></span>${dev.online_status}`;
     }
   }
 
   function onDeviceChange() {
     selectedDevice = document.getElementById('device-select').value;
-    loadDeviceStatus();
+    updateDeviceWidgets();
+  }
+
+  function showMsg(id, text, isErr = false) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg' + (isErr ? ' err' : '');
+    setTimeout(() => { el.textContent = ''; }, 3000);
   }
 
   async function sendSpray() {
-    if (!selectedDevice) { alert('Select a device first'); return; }
-    await fetch(`${API}/api/spray`, {
+    if (!selectedDevice) { showMsg('spray-msg', 'Select a device first', true); return; }
+    const res = await fetch(`${API}/api/spray`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: selectedDevice })
     });
-    document.getElementById('spray-msg').textContent = 'Sent!';
-    setTimeout(() => document.getElementById('spray-msg').textContent = '', 2000);
+    if (res.ok) showMsg('spray-msg', '✓ Sent!');
+    else showMsg('spray-msg', 'Failed', true);
   }
 
   async function sendInterval() {
-    if (!selectedDevice) { alert('Select a device first'); return; }
+    if (!selectedDevice) { showMsg('interval-msg', 'Select a device first', true); return; }
     const val = parseInt(document.getElementById('interval-input').value);
-    if (isNaN(val) || val < 3 || val > 120) { alert('Enter a value between 3 and 120'); return; }
-    await fetch(`${API}/api/interval`, {
+    if (isNaN(val) || val < 3 || val > 120) {
+      showMsg('interval-msg', 'Must be 3–120 min', true); return;
+    }
+    const res = await fetch(`${API}/api/interval`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: selectedDevice, interval: val })
     });
-    document.getElementById('interval-msg').textContent = `Set to ${val} min`;
-    setTimeout(() => document.getElementById('interval-msg').textContent = '', 2000);
+    if (res.ok) showMsg('interval-msg', `✓ Set to ${val} min`);
+    else showMsg('interval-msg', 'Failed', true);
+  }
+
+  async function renameDevice(deviceId) {
+    const input = document.getElementById(`rename-${deviceId}`);
+    const name = input.value.trim();
+    if (!name) return;
+    const res = await fetch(`${API}/api/rename`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, name })
+    });
+    if (res.ok) {
+      showMsg('rename-msg-' + deviceId, '✓ Renamed');
+      await loadDevices();
+      loadAdmin();
+    }
   }
 
   async function loadAdmin() {
-    const devRes = await fetch(`${API}/api/devices`);
-    const devices = await devRes.json();
-    document.getElementById('devices-table-body').innerHTML = devices.length
-      ? devices.map(d => `<tr>
-          <td style="color:#ffbe0b;font-weight:bold">${d.device_id}</td>
-          <td>${d.name || '--'}</td>
-          <td><span class="status-dot ${d.online_status}"></span>${d.online_status}</td>
-          <td>${d.current_interval} min</td>
-          <td style="color:#00e5ff;font-weight:bold">${d.total_sprays}</td>
-          <td style="font-size:0.75rem">${d.last_seen || '--'}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="6" style="text-align:center;color:#555;padding:24px">No devices yet</td></tr>';
+    const dRes = await fetch(`${API}/api/devices`);
+    const devices = await dRes.json();
+    const dtbody = document.getElementById('devices-tbody');
+    dtbody.innerHTML = devices.length
+      ? devices.map(d => `
+          <tr>
+            <td style="color:#ffbe0b;font-weight:bold">${d.device_id}</td>
+            <td>${d.name || '--'}</td>
+            <td><span class="dot ${d.online_status}"></span>${d.online_status}</td>
+            <td>${d.current_interval} min</td>
+            <td style="color:#00e5ff;font-weight:bold">${d.total_sprays}</td>
+            <td style="font-size:0.75rem">${d.last_seen || '--'}</td>
+            <td>
+              <div class="rename-row">
+                <input type="text" id="rename-${d.device_id}" placeholder="${d.name || d.device_id}" style="width:140px">
+                <button class="grey" onclick="renameDevice('${d.device_id}')">Save</button>
+                <span class="msg" id="rename-msg-${d.device_id}"></span>
+              </div>
+            </td>
+          </tr>`).join('')
+      : '<tr><td colspan="7" style="text-align:center;color:#555;padding:24px">No devices yet</td></tr>';
 
-    const intRes = await fetch(`${API}/api/interval-logs`);
-    const logs = await intRes.json();
-    document.getElementById('interval-table-body').innerHTML = logs.length
-      ? logs.map(l => `<tr>
-          <td>${l.id}</td>
-          <td style="color:#ffbe0b">${l.device_id}</td>
-          <td style="color:#ff4d6d">${l.old_interval} min</td>
-          <td style="color:#a8ff3e">${l.new_interval} min</td>
-          <td style="font-size:0.75rem">${l.changed_at}</td>
-        </tr>`).join('')
+    const iRes = await fetch(`${API}/api/interval-logs`);
+    const logs = await iRes.json();
+    document.getElementById('interval-tbody').innerHTML = logs.length
+      ? logs.map(l => `
+          <tr>
+            <td>${l.id}</td>
+            <td style="color:#ffbe0b">${l.device_id}</td>
+            <td style="color:#ff4d6d">${l.old_interval} min</td>
+            <td style="color:#a8ff3e">${l.new_interval} min</td>
+            <td style="font-size:0.75rem">${l.changed_at}</td>
+          </tr>`).join('')
       : '<tr><td colspan="5" style="text-align:center;color:#555;padding:24px">No changes yet</td></tr>';
   }
 
@@ -293,9 +337,8 @@
     document.getElementById('last-refresh').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
   }
 
-  // Poll status every 2 seconds, full refresh every 10
   refresh();
-  setInterval(loadDeviceStatus, 2000);
+  setInterval(updateDeviceWidgets, 2000);
   setInterval(refresh, 10000);
 </script>
 </body>
