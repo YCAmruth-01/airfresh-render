@@ -156,6 +156,7 @@
   let countdownTimer = null;
   let allDevices = [];
 
+  // ── Tab switching ─────────────────────────────────────────────────────────
   function switchTab(tab) {
     document.querySelectorAll('.tab').forEach((t, i) => {
       t.classList.toggle('active', (i === 0 && tab === 'dashboard') || (i === 1 && tab === 'admin'));
@@ -165,9 +166,10 @@
     if (tab === 'admin') loadAdmin();
   }
 
+  // ── Countdown helpers ─────────────────────────────────────────────────────
   function fmt(s) {
     s = Math.max(0, Math.floor(s));
-    return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   }
 
   function startCountdown(secs) {
@@ -180,57 +182,75 @@
     }, 1000);
   }
 
+  // ── Load spray history ────────────────────────────────────────────────────
   async function loadSprays() {
-    const res = await fetch(`${API}/api/sprays`);
-    const data = await res.json();
-    const tbody = document.getElementById('spray-tbody');
-    if (!data.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#555;padding:24px">No sprays yet</td></tr>';
-      document.getElementById('total-sprays').textContent = '0';
-      return;
+    try {
+      const res = await fetch(`${API}/api/sprays`);
+      const data = await res.json();
+      const tbody = document.getElementById('spray-tbody');
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#555;padding:24px">No sprays yet</td></tr>';
+        document.getElementById('total-sprays').textContent = '0';
+        return;
+      }
+      tbody.innerHTML = data.map(r => `
+        <tr>
+          <td>${r.id}</td>
+          <td style="color:#ffbe0b">${r.device_id}</td>
+          <td style="color:#a8ff3e;font-weight:bold">${r.spray_count}</td>
+          <td class="trigger-${r.trigger_type}">${r.trigger_type}</td>
+          <td>${r.interval_at_time} min</td>
+          <td>${r.uptime}</td>
+          <td style="font-size:0.75rem">${r.timestamp}</td>
+        </tr>`).join('');
+      document.getElementById('total-sprays').textContent = data[0].spray_count;
+    } catch (err) {
+      console.error('loadSprays failed:', err);
     }
-    tbody.innerHTML = data.map(r => `
-      <tr>
-        <td>${r.id}</td>
-        <td style="color:#ffbe0b">${r.device_id}</td>
-        <td style="color:#a8ff3e;font-weight:bold">${r.spray_count}</td>
-        <td class="trigger-${r.trigger_type}">${r.trigger_type}</td>
-        <td>${r.interval_at_time} min</td>
-        <td>${r.uptime}</td>
-        <td style="font-size:0.75rem">${r.timestamp}</td>
-      </tr>`).join('');
-    document.getElementById('total-sprays').textContent = data[0].spray_count;
   }
 
-async function loadDevices() {
-  try {
-    const res = await fetch(`${API}/api/devices`);
-    const data = await res.json();
+  // ── Load device dropdown ──────────────────────────────────────────────────
+  async function loadDevices() {
+    try {
+      const res = await fetch(`${API}/api/devices`);
+      const data = await res.json();
+      allDevices = data;
 
-    allDevices = data;
+      const sel = document.getElementById('device-select');
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">-- select --</option>' +
+        data.map(d => `<option value="${d.device_id}">${d.name || d.device_id}</option>`).join('');
 
-    const sel = document.getElementById('device-select');
-    sel.innerHTML = '<option value="">-- select --</option>' +
-      data.map(d => `<option value="${d.device_id}">${d.name || d.device_id}</option>`).join('');
+      // Restore previous selection if still present
+      if (prev && data.find(d => d.device_id === prev)) {
+        sel.value = prev;
+      }
 
-  } catch (err) {
-    console.error("loadDevices failed:", err);
+      document.getElementById('last-refresh').textContent =
+        'Updated ' + new Date().toLocaleTimeString();
+    } catch (err) {
+      console.error('loadDevices failed:', err);
+    }
   }
-}
+
+  // ── Update dashboard widgets for selected device ──────────────────────────
   async function updateDeviceWidgets() {
     if (!selectedDevice) return;
 
-    // Live status from memory
-    const sRes = await fetch(`${API}/api/status/${selectedDevice}`);
-    const status = await sRes.json();
-
-    if (!status.error) {
-      startCountdown(status.countdown || 0);
-      document.getElementById('interval-display').textContent = `Interval: ${status.interval} min`;
-      document.getElementById('interval-input').value = status.interval;
+    try {
+      // Live countdown / interval from in-memory status
+      const sRes = await fetch(`${API}/api/status/${selectedDevice}`);
+      const status = await sRes.json();
+      if (!status.error) {
+        startCountdown(status.countdown || 0);
+        document.getElementById('interval-display').textContent = `Interval: ${status.interval} min`;
+        document.getElementById('interval-input').value = status.interval;
+      }
+    } catch (err) {
+      console.error('status fetch failed:', err);
     }
 
-    // Device info from DB
+    // Device meta from cached allDevices list
     const dev = allDevices.find(d => d.device_id === selectedDevice);
     if (dev) {
       const isOnline = dev.online_status === 'online';
@@ -246,6 +266,7 @@ async function loadDevices() {
     updateDeviceWidgets();
   }
 
+  // ── Flash message helper ──────────────────────────────────────────────────
   function showMsg(id, text, isErr = false) {
     const el = document.getElementById(id);
     el.textContent = text;
@@ -253,125 +274,136 @@ async function loadDevices() {
     setTimeout(() => { el.textContent = ''; }, 3000);
   }
 
+  // ── Manual spray ──────────────────────────────────────────────────────────
   async function sendSpray() {
     if (!selectedDevice) { showMsg('spray-msg', 'Select a device first', true); return; }
-    const res = await fetch(`${API}/api/spray`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: selectedDevice })
-    });
-    if (res.ok) showMsg('spray-msg', '✓ Sent!');
-    else showMsg('spray-msg', 'Failed', true);
+    try {
+      const res = await fetch(`${API}/api/spray`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: selectedDevice })
+      });
+      if (res.ok) showMsg('spray-msg', '✓ Sent!');
+      else showMsg('spray-msg', 'Failed', true);
+    } catch (err) {
+      showMsg('spray-msg', 'Network error', true);
+    }
   }
 
+  // ── Set interval ──────────────────────────────────────────────────────────
   async function sendInterval() {
     if (!selectedDevice) { showMsg('interval-msg', 'Select a device first', true); return; }
     const val = parseInt(document.getElementById('interval-input').value);
     if (isNaN(val) || val < 3 || val > 120) {
       showMsg('interval-msg', 'Must be 3–120 min', true); return;
     }
-    const res = await fetch(`${API}/api/interval`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: selectedDevice, interval: val })
-    });
-    if (res.ok) showMsg('interval-msg', `✓ Set to ${val} min`);
-    else showMsg('interval-msg', 'Failed', true);
+    try {
+      const res = await fetch(`${API}/api/interval`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: selectedDevice, interval: val })
+      });
+      if (res.ok) showMsg('interval-msg', `✓ Set to ${val} min`);
+      else showMsg('interval-msg', 'Failed', true);
+    } catch (err) {
+      showMsg('interval-msg', 'Network error', true);
+    }
   }
-}
 
+  // ── Admin tab ─────────────────────────────────────────────────────────────
   async function loadAdmin() {
-    const dRes = await fetch(`${API}/api/devices`);
-    const devices = await dRes.json();
-    const dtbody = document.getElementById('devices-tbody');
-    dtbody.innerHTML = devices.length
-      ? devices.map(d => `
-          <tr>
-            <td style="color:#ffbe0b;font-weight:bold">${d.device_id}</td>
-            <td>${d.name || '--'}</td>
-            <td><span class="dot ${d.online_status}"></span>${d.online_status}</td>
-            <td>${d.current_interval} min</td>
-            <td style="color:#00e5ff;font-weight:bold">${d.total_sprays}</td>
-            <td style="font-size:0.75rem">${d.last_seen || '--'}</td>
-            <td>
-  <span id="name-${d.device_id}">${d.name || '--'}</span>
+    try {
+      const dRes = await fetch(`${API}/api/devices`);
+      const devices = await dRes.json();
+      const dtbody = document.getElementById('devices-tbody');
+      dtbody.innerHTML = devices.length
+        ? devices.map(d => `
+            <tr>
+              <td style="color:#ffbe0b;font-weight:bold">${d.device_id}</td>
+              <td id="name-${d.device_id}">${d.name || '--'}</td>
+              <td><span class="dot ${d.online_status === 'online' ? 'online' : 'offline'}"></span>${d.online_status}</td>
+              <td>${d.current_interval} min</td>
+              <td style="color:#00e5ff;font-weight:bold">${d.total_sprays}</td>
+              <td style="font-size:0.75rem">${d.last_seen || '--'}</td>
+              <td>
+                <input id="name-input-${d.device_id}" value="${d.name || ''}"
+                  style="display:none;background:#0f1117;border:1px solid #2a2f3e;color:#e0e0e0;
+                         padding:4px 8px;border-radius:4px;font-size:0.82rem;width:140px">
+                <button id="edit-btn-${d.device_id}"   onclick="startEdit('${d.device_id}')">✏️ Edit</button>
+                <button id="save-btn-${d.device_id}"   onclick="saveEdit('${d.device_id}')"   style="display:none">✓ Save</button>
+                <button id="cancel-btn-${d.device_id}" onclick="cancelEdit('${d.device_id}')" style="display:none">✕</button>
+              </td>
+            </tr>`).join('')
+        : '<tr><td colspan="7" style="text-align:center;color:#555;padding:24px">No devices yet</td></tr>';
+    } catch (err) {
+      console.error('loadAdmin devices failed:', err);
+    }
 
-  <input id="name-input-${d.device_id}" value="${d.name || ''}"
-    style="display:none;background:#0f1117;border:1px solid #2a2f3e;color:#e0e0e0;padding:4px 8px;border-radius:4px;font-size:0.82rem;width:140px">
-
-  <button onclick="startEdit('${d.device_id}')" id="edit-btn-${d.device_id}">
-    ✏️ Edit
-  </button>
-
-  <button style="display:none"
-    onclick="saveEdit('${d.device_id}')" id="save-btn-${d.device_id}">
-    ✓ Save
-  </button>
-
-  <button style="display:none"
-    onclick="cancelEdit('${d.device_id}')" id="cancel-btn-${d.device_id}">
-    ✕
-  </button>
-</td>
-          </tr>`).join('')
-      : '<tr><td colspan="7" style="text-align:center;color:#555;padding:24px">No devices yet</td></tr>';
-
-    const iRes = await fetch(`${API}/api/interval-logs`);
-    const logs = await iRes.json();
-    document.getElementById('interval-tbody').innerHTML = logs.length
-      ? logs.map(l => `
-          <tr>
-            <td>${l.id}</td>
-            <td style="color:#ffbe0b">${l.device_id}</td>
-            <td style="color:#ff4d6d">${l.old_interval} min</td>
-            <td style="color:#a8ff3e">${l.new_interval} min</td>
-            <td style="font-size:0.75rem">${l.changed_at}</td>
-          </tr>`).join('')
-      : '<tr><td colspan="5" style="text-align:center;color:#555;padding:24px">No changes yet</td></tr>';
+    try {
+      const iRes = await fetch(`${API}/api/interval-logs`);
+      const logs = await iRes.json();
+      document.getElementById('interval-tbody').innerHTML = logs.length
+        ? logs.map(l => `
+            <tr>
+              <td>${l.id}</td>
+              <td style="color:#ffbe0b">${l.device_id}</td>
+              <td style="color:#ff4d6d">${l.old_interval} min</td>
+              <td style="color:#a8ff3e">${l.new_interval} min</td>
+              <td style="font-size:0.75rem">${l.changed_at}</td>
+            </tr>`).join('')
+        : '<tr><td colspan="5" style="text-align:center;color:#555;padding:24px">No changes yet</td></tr>';
+    } catch (err) {
+      console.error('loadAdmin interval-logs failed:', err);
+    }
   }
-async function refresh() {
-  try {
-    await loadSprays();
-    await loadDevices();
-  } catch (err) {
-    console.error("refresh failed:", err);
+
+  // ── Rename helpers ────────────────────────────────────────────────────────
+  function startEdit(deviceId) {
+    document.getElementById(`name-${deviceId}`).style.display = 'none';
+    document.getElementById(`name-input-${deviceId}`).style.display = 'inline';
+    document.getElementById(`edit-btn-${deviceId}`).style.display = 'none';
+    document.getElementById(`save-btn-${deviceId}`).style.display = 'inline';
+    document.getElementById(`cancel-btn-${deviceId}`).style.display = 'inline';
   }
-}
+
+  function cancelEdit(deviceId) {
+    document.getElementById(`name-${deviceId}`).style.display = 'inline';
+    document.getElementById(`name-input-${deviceId}`).style.display = 'none';
+    document.getElementById(`edit-btn-${deviceId}`).style.display = 'inline';
+    document.getElementById(`save-btn-${deviceId}`).style.display = 'none';
+    document.getElementById(`cancel-btn-${deviceId}`).style.display = 'none';
+  }
+
+  async function saveEdit(deviceId) {
+    const newName = document.getElementById(`name-input-${deviceId}`).value.trim();
+    if (!newName) { alert('Name cannot be empty'); return; }
+    try {
+      await fetch(`${API}/api/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: deviceId, name: newName })
+      });
+      document.getElementById(`name-${deviceId}`).textContent = newName;
+      cancelEdit(deviceId);
+      loadDevices();
+    } catch (err) {
+      alert('Rename failed: ' + err.message);
+    }
+  }
+
+  // ── Polling ───────────────────────────────────────────────────────────────
+  async function refresh() {
+    try {
+      await loadSprays();
+      await loadDevices();
+    } catch (err) {
+      console.error('refresh failed:', err);
+    }
+  }
 
   refresh();
   setInterval(updateDeviceWidgets, 2000);
   setInterval(refresh, 10000);
-
- function startEdit(deviceId) {
-  document.getElementById(`name-${deviceId}`).style.display = 'none';
-  document.getElementById(`name-input-${deviceId}`).style.display = 'inline';
-  document.getElementById(`edit-btn-${deviceId}`).style.display = 'none';
-  document.getElementById(`save-btn-${deviceId}`).style.display = 'inline';
-  document.getElementById(`cancel-btn-${deviceId}`).style.display = 'inline';
-}
-
-function cancelEdit(deviceId) {
-  document.getElementById(`name-${deviceId}`).style.display = 'inline';
-  document.getElementById(`name-input-${deviceId}`).style.display = 'none';
-  document.getElementById(`edit-btn-${deviceId}`).style.display = 'inline';
-  document.getElementById(`save-btn-${deviceId}`).style.display = 'none';
-  document.getElementById(`cancel-btn-${deviceId}`).style.display = 'none';
-}
-
-async function saveEdit(deviceId) {
-  const newName = document.getElementById(`name-input-${deviceId}`).value.trim();
-  if (!newName) return alert("Name cannot be empty");
-
-  await fetch(`${API}/api/rename`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ device_id: deviceId, name: newName })
-  });
-
-  document.getElementById(`name-${deviceId}`).textContent = newName;
-  cancelEdit(deviceId);
-  loadDevices();
-}
 </script>
 </body>
 </html>
