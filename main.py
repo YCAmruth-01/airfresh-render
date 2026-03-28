@@ -16,6 +16,8 @@ MQTT_USER = "freshener"
 MQTT_PASS = "EsP-3232"
 DB_PATH   = "airfresh.db"
 
+# ── Database ──────────────────────────────────────────────────────────────────
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -54,6 +56,8 @@ def init_db():
     conn.close()
     print("[DB] Ready")
 
+# ── MQTT ──────────────────────────────────────────────────────────────────────
+
 mqtt_client = mqtt.Client(client_id="fastapi-backend-001")
 latest_status = {}
 
@@ -89,7 +93,6 @@ def on_message(client, userdata, msg):
     c    = conn.cursor()
 
     if event == "spray":
-        # Get interval_at_time from payload — try both field names
         interval_val = data.get("interval_at_time") or data.get("interval") or 0
         c.execute(
             "INSERT INTO spray_logs (device_id, spray_count, trigger_type, interval_at_time, uptime, timestamp) VALUES (?,?,?,?,?,?)",
@@ -126,7 +129,6 @@ def on_message(client, userdata, msg):
             "INSERT INTO interval_logs (device_id, old_interval, new_interval, changed_at) VALUES (?,?,?,?)",
             (device_id, old_val, new_val, ts)
         )
-        # Also update current_interval in devices table
         c.execute(
             "UPDATE devices SET current_interval=? WHERE device_id=?",
             (new_val, device_id)
@@ -144,6 +146,8 @@ def start_mqtt():
     mqtt_client.connect(MQTT_HOST, MQTT_PORT, 60)
     mqtt_client.loop_forever()
 
+# ── FastAPI app ───────────────────────────────────────────────────────────────
+
 app = FastAPI()
 
 app.add_middleware(CORSMiddleware,
@@ -158,6 +162,8 @@ def startup():
     t = threading.Thread(target=start_mqtt, daemon=True)
     t.start()
     print("[APP] Started")
+
+# ── GET endpoints ─────────────────────────────────────────────────────────────
 
 @app.get("/api/sprays")
 def get_sprays():
@@ -184,6 +190,8 @@ def get_interval_logs():
     conn.close()
     return [dict(r) for r in rows]
 
+# ── POST payloads ─────────────────────────────────────────────────────────────
+
 class CommandPayload(BaseModel):
     device_id: str
 
@@ -195,19 +203,27 @@ class RenamePayload(BaseModel):
     device_id: str
     name: str
 
+# ── POST endpoints ────────────────────────────────────────────────────────────
+
 @app.post("/api/spray")
 def send_spray(payload: CommandPayload):
     topic = f"airfreshener/{payload.device_id}/command"
     mqtt_client.publish(topic, "spray")
     return {"status": "sent", "topic": topic}
 
+@app.post("/api/interval")
+def set_interval(payload: IntervalPayload):
+    if payload.interval < 3 or payload.interval > 120:
+        return {"error": "Interval must be 3–120 min"}
+    topic = f"airfreshener/{payload.device_id}/interval"
+    mqtt_client.publish(topic, str(payload.interval))
+    return {"status": "sent", "topic": topic, "interval": payload.interval}
+
 @app.post("/api/rename")
 def rename_device(payload: RenamePayload):
     name = payload.name.strip()
-
     if not name:
         return {"error": "Name cannot be empty"}
-
     conn = get_db()
     conn.execute(
         "UPDATE devices SET name=? WHERE device_id=?",
@@ -215,8 +231,11 @@ def rename_device(payload: RenamePayload):
     )
     conn.commit()
     conn.close()
-
     return {"status": "renamed"}
+
+# ── Static files ──────────────────────────────────────────────────────────────
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 def root():
