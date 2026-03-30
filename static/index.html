@@ -54,6 +54,9 @@
   .dot.offline { background: #555; }
   .section-title { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
   .rename-row { display: flex; align-items: center; gap: 8px; }
+
+  /* ── Interval input: highlight when user has an unsent edit ── */
+  #interval-input.dirty { border-color: #ffbe0b; }
 </style>
 </head>
 <body>
@@ -156,6 +159,29 @@
   let countdownTimer = null;
   let allDevices = [];
 
+  // ── FIX: track whether user is actively editing the interval input ─────────
+  // When true, the 2-second status poll will NOT overwrite the input value.
+  let intervalInputDirty = false;
+
+  const intervalInput = document.getElementById('interval-input');
+
+  intervalInput.addEventListener('focus', () => {
+    intervalInputDirty = true;
+    intervalInput.classList.add('dirty');
+  });
+  intervalInput.addEventListener('blur', () => {
+    // Only clear the dirty flag if the value matches what the device reports
+    // (i.e. user blurred without clicking Set). We leave it dirty so the
+    // user's value is preserved until they explicitly click Set or press Escape.
+  });
+  intervalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      intervalInputDirty = false;
+      intervalInput.classList.remove('dirty');
+      intervalInput.blur();
+    }
+  });
+
   // ── Tab switching ─────────────────────────────────────────────────────────
   function switchTab(tab) {
     document.querySelectorAll('.tab').forEach((t, i) => {
@@ -238,13 +264,16 @@
     if (!selectedDevice) return;
 
     try {
-      // Live countdown / interval from in-memory status
       const sRes = await fetch(`${API}/api/status/${selectedDevice}`);
       const status = await sRes.json();
       if (!status.error) {
         startCountdown(status.countdown || 0);
         document.getElementById('interval-display').textContent = `Interval: ${status.interval} min`;
-        document.getElementById('interval-input').value = status.interval;
+
+        // ── FIX: only sync the interval input if the user isn't editing it ──
+        if (!intervalInputDirty) {
+          intervalInput.value = status.interval;
+        }
       }
     } catch (err) {
       console.error('status fetch failed:', err);
@@ -263,6 +292,9 @@
 
   function onDeviceChange() {
     selectedDevice = document.getElementById('device-select').value;
+    // Reset dirty flag when user switches device
+    intervalInputDirty = false;
+    intervalInput.classList.remove('dirty');
     updateDeviceWidgets();
   }
 
@@ -293,7 +325,7 @@
   // ── Set interval ──────────────────────────────────────────────────────────
   async function sendInterval() {
     if (!selectedDevice) { showMsg('interval-msg', 'Select a device first', true); return; }
-    const val = parseInt(document.getElementById('interval-input').value);
+    const val = parseInt(intervalInput.value);
     if (isNaN(val) || val < 3 || val > 120) {
       showMsg('interval-msg', 'Must be 3–120 min', true); return;
     }
@@ -303,8 +335,14 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ device_id: selectedDevice, interval: val })
       });
-      if (res.ok) showMsg('interval-msg', `✓ Set to ${val} min`);
-      else showMsg('interval-msg', 'Failed', true);
+      if (res.ok) {
+        showMsg('interval-msg', `✓ Set to ${val} min`);
+        // ── FIX: clear dirty flag — value is now confirmed sent ──────────
+        intervalInputDirty = false;
+        intervalInput.classList.remove('dirty');
+      } else {
+        showMsg('interval-msg', 'Failed', true);
+      }
     } catch (err) {
       showMsg('interval-msg', 'Network error', true);
     }
@@ -378,14 +416,21 @@
     const newName = document.getElementById(`name-input-${deviceId}`).value.trim();
     if (!newName) { alert('Name cannot be empty'); return; }
     try {
-      await fetch(`${API}/api/rename`, {
+      const res = await fetch(`${API}/api/rename`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ device_id: deviceId, name: newName })
       });
+      if (!res.ok) { alert('Rename failed'); return; }
       document.getElementById(`name-${deviceId}`).textContent = newName;
       cancelEdit(deviceId);
-      loadDevices();
+
+      // Also update the dashboard dropdown in real-time
+      const opt = document.querySelector(`#device-select option[value="${deviceId}"]`);
+      if (opt) opt.textContent = newName;
+
+      // Refresh allDevices cache
+      await loadDevices();
     } catch (err) {
       alert('Rename failed: ' + err.message);
     }
